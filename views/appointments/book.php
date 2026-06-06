@@ -64,7 +64,7 @@ require_once __DIR__ . '/../../views/partials/sidebar.php';
                                     <?php endforeach; ?>
                                 </select>
 
-                                <!-- معلومات الطبيب -->
+                                <!-- Info box: shows the selected doctor's available days dynamically -->
                                 <div id="doctor_info"
                                      class="callout callout-info mt-2"
                                      style="display:none;">
@@ -136,7 +136,7 @@ require_once __DIR__ . '/../../views/partials/sidebar.php';
     </div>
 </section>
 
-<!-- Script لعرض أيام الطبيب عند اختياره -->
+<!-- JavaScript: show the selected doctor's available days when the dropdown changes -->
 <script>
 document.getElementById('doctor_select').addEventListener('change', function() {
     const selected = this.options[this.selectedIndex];
@@ -152,7 +152,7 @@ document.getElementById('doctor_select').addEventListener('change', function() {
     }
 });
 
-// تشغيل عند تحميل الصفحة إذا كان doctor محدد
+// Also trigger on page load in case a doctor was already selected (e.g. after form validation failure).
 window.addEventListener('load', function() {
     document.getElementById('doctor_select').dispatchEvent(new Event('change'));
 });

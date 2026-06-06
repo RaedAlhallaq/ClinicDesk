@@ -1,11 +1,11 @@
 <?php
 // ============================================================
 // views/auth/login.php
-// صفحة تسجيل الدخول
-// لا تحتاج partials — صفحة مستقلة بتصميم خاص
+// Login Page
+// Does not use the standard partials — it is a standalone layout with custom design.
 // ============================================================
 
-// إذا مسجل دخوله بالفعل → أعده للـ Dashboard
+// If the user is already logged in, redirect them to the dashboard.
 Auth::redirectIfLoggedIn();
 
 $pageTitle = 'Login';

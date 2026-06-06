@@ -1,7 +1,9 @@
 <?php
 // ============================================================
 // models/AppointmentModel.php
-// كل العمليات على جدول appointments
+// Handles all database operations on the 'appointments' table.
+// Most queries JOIN users, doctors, and specializations to
+// return complete appointment details in a single query.
 // ============================================================
 
 require_once __DIR__ . '/BaseModel.php';
@@ -9,8 +11,11 @@ require_once __DIR__ . '/BaseModel.php';
 class AppointmentModel extends BaseModel
 {
     // --------------------------------------------------------
-    // الـ SELECT الأساسي المشترك بين كل الـ queries
-    // نعرّفه مرة واحدة لتجنب التكرار
+    // baseSelect()  [private]
+    // The shared SELECT + FROM + JOIN block used by all queries
+    // that need full appointment details.
+    //
+    // Defined once here to avoid repeating it in every method.
     // --------------------------------------------------------
     private function baseSelect(): string
     {
@@ -38,12 +43,13 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // hasConflict(): هل يوجد تعارض في الحجز؟
+    // hasConflict()
+    // Check whether a doctor already has a booking at the same
+    // date and time (to prevent double-booking).
     //
-    // يتحقق: هل هذا الطبيب محجوز في نفس التاريخ والوقت؟
-    //
-    // تُستدعى قبل book() لعرض رسالة خطأ واضحة
-    // (DB أيضًا تمنعه لكن رسالتها غير مفهومة)
+    // Called before book() to show a clear error message.
+    // The database also enforces this via a UNIQUE constraint,
+    // but the DB error message is not user-friendly.
     // --------------------------------------------------------
     public function hasConflict(
         int    $doctorId,
@@ -65,6 +71,11 @@ class AppointmentModel extends BaseModel
     }
 
 
+    // --------------------------------------------------------
+    // countToday()
+    // Count the total number of appointments scheduled for today.
+    // Used in the Admin Dashboard statistics.
+    // --------------------------------------------------------
     public function countToday(): int
     {
         return (int) $this->fetchColumn(
@@ -75,6 +86,11 @@ class AppointmentModel extends BaseModel
     }
 
 
+    // --------------------------------------------------------
+    // countThisWeekByStatus()
+    // Count appointments for the current week, grouped by status.
+    // Used in the Admin Dashboard weekly chart.
+    // --------------------------------------------------------
     public function countThisWeekByStatus(): array
     {
         $rows = $this->fetchAll(
@@ -88,6 +104,11 @@ class AppointmentModel extends BaseModel
     }
 
 
+    // --------------------------------------------------------
+    // countThisMonthByDoctor()
+    // Count a specific doctor's appointments for the current month,
+    // grouped by status. Used in the Doctor Dashboard.
+    // --------------------------------------------------------
     public function countThisMonthByDoctor(int $doctorId): array
     {
         $rows = $this->fetchAll(
@@ -105,6 +126,11 @@ class AppointmentModel extends BaseModel
     }
 
 
+    // --------------------------------------------------------
+    // getNextUpcomingByPatient()
+    // Fetch the single next upcoming appointment for a patient.
+    // Used in the Patient Dashboard to show the nearest booking.
+    // --------------------------------------------------------
     public function getNextUpcomingByPatient(int $patientId): ?array
     {
         return $this->fetchOne(
@@ -121,9 +147,12 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // book(): حجز موعد جديد
+    // book()
+    // Insert a new appointment record into the database.
     //
-    // تُرجع: ID الموعد الجديد أو 0 إذا فشل
+    // New appointments always start with status = 'pending'.
+    //
+    // Returns: new appointment ID, or 0 on failure.
     // --------------------------------------------------------
     public function book(array $data): int
     {
@@ -149,11 +178,12 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // findById(): جلب موعد واحد بالـ ID مع كل التفاصيل
+    // findById()
+    // Fetch a single appointment with all its related details by ID.
     //
-    // تُستخدم في:
-    // - صفحة تفاصيل الموعد
-    // - التحقق من ملكية الموعد
+    // Used when:
+    //   - Viewing appointment details
+    //   - Verifying ownership before any action
     // --------------------------------------------------------
     public function findById(int $id): ?array
     {
@@ -166,18 +196,19 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // buildWhereClause(): بناء WHERE ديناميكي
+    // buildWhereClause()  [private]
+    // Build a dynamic WHERE clause from an array of filter options.
     //
-    // private helper تُستخدم داخليًا فقط
+    // This is a private helper used only within this model.
     //
-    // $filters مصفوفة تحتوي على:
-    // 'status'     → فلترة بالحالة
-    // 'date_from'  → من تاريخ
-    // 'date_to'    → إلى تاريخ
-    // 'doctor_id'  → فلترة بطبيب معين
-    // 'search'     → بحث باسم المريض
+    // Supported filters:
+    //   'status'    → filter by appointment status
+    //   'date_from' → appointments on or after this date
+    //   'date_to'   → appointments on or before this date
+    //   'doctor_id' → filter by a specific doctor (Admin only)
+    //   'search'    → search by patient name (Admin only)
     //
-    // تُرجع: ['where' => '...', 'types' => '...', 'params' => [...]]
+    // Returns: ['where' => '...', 'types' => '...', 'params' => [...]]
     // --------------------------------------------------------
     private function buildWhereClause(
         array  $filters,
@@ -187,42 +218,42 @@ class AppointmentModel extends BaseModel
         $params     = [];
         $types      = '';
 
-        // فلترة بالحالة
+        // Add status filter if provided.
         if (!empty($filters['status'])) {
             $conditions[] = "a.status = ?";
             $params[]     = $filters['status'];
             $types       .= 's';
         }
 
-        // فلترة من تاريخ
+        // Add start date filter if provided.
         if (!empty($filters['date_from'])) {
             $conditions[] = "a.appt_date >= ?";
             $params[]     = $filters['date_from'];
             $types       .= 's';
         }
 
-        // فلترة إلى تاريخ
+        // Add end date filter if provided.
         if (!empty($filters['date_to'])) {
             $conditions[] = "a.appt_date <= ?";
             $params[]     = $filters['date_to'];
             $types       .= 's';
         }
 
-        // فلترة بطبيب معين (للـ Admin)
+        // Filter by a specific doctor (used by Admin).
         if (!empty($filters['doctor_id'])) {
             $conditions[] = "a.doctor_id = ?";
             $params[]     = (int) $filters['doctor_id'];
             $types       .= 'i';
         }
 
-        // بحث باسم المريض (للـ Admin)
+        // Search by patient name (used by Admin).
         if (!empty($filters['search'])) {
             $conditions[] = "p.name LIKE ?";
             $params[]     = '%' . $filters['search'] . '%';
             $types       .= 's';
         }
 
-        // بناء جملة WHERE النهائية
+        // Assemble the final WHERE clause string.
         $where = '';
         if (!empty($conditions)) {
             $where = "WHERE " . implode(" AND ", $conditions);
@@ -237,9 +268,9 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getByPatient(): مواعيد مريض معين مع Pagination وفلترة
-    //
-    // تُستخدم في: صفحة "مواعيدي" للمريض
+    // getByPatient()
+    // Fetch a paginated list of appointments for a specific patient.
+    // Used on the patient's "My Appointments" page.
     // --------------------------------------------------------
     public function getByPatient(
         int   $patientId,
@@ -247,14 +278,14 @@ class AppointmentModel extends BaseModel
         int   $limit,
         array $filters = []
     ): array {
-        // الشرط الأساسي: هذا المريض فقط
+        // Base condition: only this patient's appointments.
         $baseConditions = ["a.patient_id = ?"];
         $baseParams     = [$patientId];
         $baseTypes      = 'i';
 
         $clause = $this->buildWhereClause($filters, $baseConditions);
 
-        // دمج الـ params: الأساسية أولًا ثم الفلاتر ثم LIMIT/OFFSET
+        // Merge base params, filter params, and pagination params in order.
         $allParams = array_merge(
             $baseParams,
             $clause['params'],
@@ -274,9 +305,9 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getByDoctor(): مواعيد طبيب معين مع Pagination وفلترة
-    //
-    // تُستخدم في: جدول الطبيب اليومي والأسبوعي
+    // getByDoctor()
+    // Fetch a paginated list of appointments for a specific doctor.
+    // Used on the doctor's appointments page.
     // --------------------------------------------------------
     public function getByDoctor(
         int   $doctorId,
@@ -309,7 +340,8 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getAll(): كل المواعيد للـ Admin مع Pagination وفلترة
+    // getAll()
+    // Fetch a paginated list of all appointments for the Admin.
     // --------------------------------------------------------
     public function getAll(
         int   $offset,
@@ -336,7 +368,8 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // countByPatient(): عدد مواعيد مريض (للـ Paginator)
+    // countByPatient()
+    // Count the total appointments for a patient (used by Paginator).
     // --------------------------------------------------------
     public function countByPatient(
         int   $patientId,
@@ -364,7 +397,8 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // countByDoctor(): عدد مواعيد طبيب (للـ Paginator)
+    // countByDoctor()
+    // Count the total appointments for a doctor (used by Paginator).
     // --------------------------------------------------------
     public function countByDoctor(
         int   $doctorId,
@@ -390,7 +424,8 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // countAll(): كل المواعيد (للـ Admin Paginator)
+    // countAll()
+    // Count all appointments system-wide (used by Admin Paginator).
     // --------------------------------------------------------
     public function countAll(array $filters = []): int
     {
@@ -408,21 +443,22 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // updateStatus(): تحديث حالة الموعد
+    // updateStatus()
+    // Change the status of an appointment.
     //
-    // تُستخدم في:
-    // - Doctor: confirm / complete / cancel
-    // - Admin:  تغيير أي حالة
-    // - Patient: cancel (pending فقط)
+    // Used by:
+    //   - Doctor: confirm, complete, or cancel an appointment
+    //   - Admin:  change any appointment status
+    //   - Patient: cancel a pending appointment
     //
-    // $notes → ملاحظات الطبيب (اختياري)
+    // $notes: optional doctor notes — only saved if provided.
     // --------------------------------------------------------
     public function updateStatus(
         int    $id,
         string $status,
         string $notes = ''
     ): bool {
-        // إذا تم تمرير notes → حدّثها أيضًا
+        // If doctor notes are provided, update them along with the status.
         if (!empty($notes)) {
             return (bool) $this->execute(
                 "UPDATE appointments
@@ -434,7 +470,7 @@ class AppointmentModel extends BaseModel
             );
         }
 
-        // بدون notes → حدّث الحالة فقط
+        // No notes — update only the status column.
         return (bool) $this->execute(
             "UPDATE appointments
              SET    status = ?
@@ -446,9 +482,9 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getTodayByDoctor(): مواعيد اليوم لطبيب معين
-    //
-    // تُستخدم في: أعلى Dashboard الطبيب
+    // getTodayByDoctor()
+    // Fetch all of a doctor's non-cancelled appointments for today.
+    // Used at the top of the Doctor Dashboard.
     // --------------------------------------------------------
     public function getTodayByDoctor(int $doctorId): array
     {
@@ -465,9 +501,9 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getUpcomingByPatient(): المواعيد القادمة لمريض
-    //
-    // تُستخدم في: Dashboard المريض
+    // getUpcomingByPatient()
+    // Fetch a patient's next upcoming appointments (pending or confirmed).
+    // Used on the Patient Dashboard.
     // --------------------------------------------------------
     public function getUpcomingByPatient(
         int $patientId,
@@ -487,7 +523,8 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getRecentForAdmin(): آخر N موعد للـ Admin Dashboard
+    // getRecentForAdmin()
+    // Fetch the most recently created appointments for the Admin Dashboard.
     // --------------------------------------------------------
     public function getRecentForAdmin(int $limit = 5): array
     {
@@ -502,18 +539,21 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // countByStatus(): إحصائيات حسب الحالة
+    // countByStatus()
+    // Count appointments grouped by status.
     //
-    // تُستخدم في: Dashboard الإحصائيات
+    // $scope controls whose appointments to count:
+    //   'all'     → system-wide (Admin)
+    //   'patient' → a specific patient's appointments
+    //   'doctor'  → a specific doctor's appointments
     //
-    // تُرجع:
-    // ['pending'=>5, 'confirmed'=>3, 'completed'=>20, 'cancelled'=>2]
+    // Returns: ['pending'=>5, 'confirmed'=>3, 'completed'=>20, 'cancelled'=>2]
     // --------------------------------------------------------
     public function countByStatus(
         string $scope   = 'all',
         int    $scopeId = 0
     ): array {
-        // scope = 'all' | 'patient' | 'doctor'
+        // Build the WHERE clause based on scope.
         $where  = '';
         $types  = '';
         $params = [];
@@ -537,22 +577,17 @@ class AppointmentModel extends BaseModel
             $params
         );
 
-        // قيم افتراضية
-        $counts = [
-            'pending'   => 0,
-            'confirmed' => 0,
-            'completed' => 0,
-            'cancelled' => 0
-        ];
-
-        foreach ($rows as $row) {
-            $counts[$row['status']] = (int) $row['total'];
-        }
-
-        return $counts;
+        return $this->normaliseStatusCounts($rows);
     }
 
 
+    // --------------------------------------------------------
+    // normaliseStatusCounts()  [private]
+    // Convert raw status rows into a predictable status => count array.
+    //
+    // Ensures all four statuses always exist in the result,
+    // defaulting to 0 if no rows exist for that status.
+    // --------------------------------------------------------
     private function normaliseStatusCounts(array $rows): array
     {
         $counts = [
@@ -571,10 +606,11 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // isOwnedByPatient(): هل هذا الموعد يخص هذا المريض؟
+    // isOwnedByPatient()
+    // Check whether an appointment belongs to a specific patient.
     //
-    // تُستخدم للتحقق من الملكية قبل أي عملية
-    // مثل: إلغاء الموعد
+    // Used to enforce ownership before allowing a patient to
+    // view or cancel an appointment.
     // --------------------------------------------------------
     public function isOwnedByPatient(
         int $appointmentId,
@@ -594,7 +630,11 @@ class AppointmentModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // isOwnedByDoctor(): هل هذا الموعد يخص هذا الطبيب؟
+    // isOwnedByDoctor()
+    // Check whether an appointment belongs to a specific doctor.
+    //
+    // Used to enforce ownership before allowing a doctor to
+    // update the status or add a prescription.
     // --------------------------------------------------------
     public function isOwnedByDoctor(
         int $appointmentId,

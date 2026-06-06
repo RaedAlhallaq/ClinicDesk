@@ -1,29 +1,29 @@
 <?php
 // ============================================================
 // models/UserModel.php
-// كل العمليات على جدول users
-// يرث من BaseModel: $db, fetchAll, fetchOne, fetchColumn...
+// Handles all database operations on the 'users' table.
+// Inherits from BaseModel: $db, fetchAll, fetchOne, fetchColumn.
 // ============================================================
 
 require_once __DIR__ . '/BaseModel.php';
 
 class UserModel extends BaseModel
 {
-    // --------------------------------------------------------
-    // اسم الجدول كـ constant
-    // إذا غيّرت اسم الجدول → تغيير في مكان واحد فقط
-    // --------------------------------------------------------
+    // The table name stored as a constant.
+    // If the table is ever renamed, only this one line needs to change.
     private const TABLE = 'users';
 
 
     // --------------------------------------------------------
-    // findById(): البحث عن مستخدم بالـ ID
+    // findById()
+    // Find a single user record by their ID.
     //
-    // تُستخدم في:
-    // - تحميل بيانات المستخدم لصفحة التعديل
-    // - التحقق من ملكية resource
+    // Used when:
+    //   - Loading user data for the edit page
+    //   - Verifying ownership of a resource
     //
-    // تُرجع: مصفوفة بيانات المستخدم أو null
+    // Returns: an associative array of user data, or null if not found.
+    // Note: password is intentionally excluded here for security.
     // --------------------------------------------------------
     public function findById(int $id): ?array
     {
@@ -39,15 +39,16 @@ class UserModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // findByEmail(): البحث عن مستخدم بالبريد الإلكتروني
+    // findByEmail()
+    // Find a user by their email address.
     //
-    // تُستخدم في:
-    // - تسجيل الدخول (AuthController)
-    // - التحقق من عدم تكرار البريد عند الإنشاء
+    // Used when:
+    //   - Logging in (AuthController needs the password hash)
+    //   - Checking for duplicate emails before creating a user
     //
-    // ملاحظة: نجلب password هنا لأن AuthController
-    // يحتاجه لـ password_verify()
-    // في findById نخفيه لأنه غير مطلوب في باقي الحالات
+    // Note: password IS included here because AuthController
+    //       needs it for password_verify(). In findById() it is
+    //       hidden since no other operation needs it.
     // --------------------------------------------------------
     public function findByEmail(string $email): ?array
     {
@@ -63,22 +64,24 @@ class UserModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // create(): إنشاء مستخدم جديد
+    // create()
+    // Insert a new user record into the database.
     //
-    // تُستخدم في:
-    // - Admin ينشئ حساب جديد (UserController)
+    // Used when:
+    //   - An Admin creates a new user account
     //
-    // $data يجب أن يحتوي على:
-    // name, email, password (نص عادي - سنشفّره هنا)
-    // role, phone (اختياري)
+    // $data must contain: name, email, password (plain text),
+    //                     role, phone (optional)
     //
-    // تُرجع: ID المستخدم الجديد أو 0 إذا فشل
+    // The password is hashed here inside the model — never
+    // hash it in the controller. The model is responsible for
+    // how data is stored.
+    //
+    // Returns: the new user's ID, or 0 on failure.
     // --------------------------------------------------------
     public function create(array $data): int
     {
-        // شفّر كلمة المرور هنا داخل Model
-        // لا تشفّرها في Controller
-        // Model هو المسؤول عن كيفية حفظ البيانات
+        // Hash the plain-text password using bcrypt before saving.
         $hashedPassword = password_hash(
             $data['password'],
             PASSWORD_BCRYPT
@@ -97,23 +100,21 @@ class UserModel extends BaseModel
             ]
         );
 
-        // إذا نجح INSERT → أعد الـ ID الجديد
-        // إذا فشل (مثل تكرار email) → أعد 0
+        // Return the new ID on success, or 0 on failure.
         return $result ? $this->lastInsertId() : 0;
     }
 
 
     // --------------------------------------------------------
-    // update(): تعديل بيانات مستخدم
+    // update()
+    // Update an existing user's basic profile information.
     //
-    // تُستخدم في:
-    // - Admin يعدّل بيانات مستخدم
-    // - المستخدم يعدّل ملفه الشخصي
+    // Used when:
+    //   - An Admin edits a user's name, phone, or avatar
     //
-    // $data يمكن أن يحتوي على:
-    // name, phone, avatar (اختياري)
+    // $data can contain: name, phone, avatar (optional)
     //
-    // تُرجع: true إذا نجح، false إذا فشل
+    // Returns: true on success, false on failure.
     // --------------------------------------------------------
     public function update(int $id, array $data): bool
     {
@@ -135,13 +136,13 @@ class UserModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // updatePassword(): تغيير كلمة المرور فقط
+    // updatePassword()
+    // Change a user's password only.
     //
-    // دالة منفصلة لتغيير كلمة المرور
-    // لأنها عملية حساسة تختلف عن باقي التعديلات
+    // This is a separate method because changing a password is
+    // a sensitive operation that differs from regular updates.
     //
-    // $newPassword → كلمة المرور الجديدة (نص عادي)
-    //               سنشفّرها هنا
+    // $newPassword: plain-text — hashed here before saving.
     // --------------------------------------------------------
     public function updatePassword(int $id, string $newPassword): bool
     {
@@ -161,10 +162,11 @@ class UserModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // updateAvatar(): تحديث صورة المستخدم فقط
+    // updateAvatar()
+    // Update a user's profile photo path only.
     //
-    // دالة منفصلة لأن رفع الصورة
-    // يحدث بشكل مستقل عن باقي البيانات
+    // Kept as a separate method because photo uploads happen
+    // independently from the rest of the profile data.
     // --------------------------------------------------------
     public function updateAvatar(int $id, string $avatarPath): bool
     {
@@ -179,13 +181,14 @@ class UserModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // toggleActive(): تفعيل/تعطيل حساب
+    // toggleActive()
+    // Flip a user's active status between enabled and disabled.
     //
-    // يقلب قيمة is_active:
-    // 1 → 0 (تعطيل)
-    // 0 → 1 (تفعيل)
+    //   1 → 0 (deactivate)
+    //   0 → 1 (activate)
     //
-    // استخدام NOT في SQL أنظف من قراءة القيمة وعكسها في PHP
+    // Using SQL's NOT operator is cleaner than reading the value
+    // in PHP and then writing it back.
     // --------------------------------------------------------
     public function toggleActive(int $id): bool
     {
@@ -200,17 +203,18 @@ class UserModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getAllPaginated(): جلب المستخدمين مع Pagination وفلترة
+    // getAllPaginated()
+    // Fetch a page of users with optional role and search filters.
     //
-    // تُستخدم في:
-    // - لوحة Admin لعرض قائمة المستخدمين
+    // Used in the Admin panel to display the user list.
     //
-    // $offset → من Paginator::offset()
-    // $limit  → ITEMS_PER_PAGE من config
-    // $role   → فلترة بالدور (اختياري)
-    // $search → بحث باسم أو بريد (اختياري)
+    // $offset → from Paginator::offset()
+    // $limit  → ITEMS_PER_PAGE from config
+    // $role   → filter by role (optional)
+    // $search → search by name or email (optional)
     //
-    // تُرجع: مصفوفة المستخدمين
+    // The WHERE clause is built dynamically based on which
+    // filters are active — empty filters are skipped.
     // --------------------------------------------------------
     public function getAllPaginated(
         int    $offset,
@@ -218,19 +222,19 @@ class UserModel extends BaseModel
         string $role   = '',
         string $search = ''
     ): array {
-        // نبني WHERE clause ديناميكيًا
+        // Build the WHERE clause dynamically based on active filters.
         $conditions = [];
         $params     = [];
         $types      = '';
 
-        // فلترة بالدور إذا تم تمريره
+        // Filter by role if provided.
         if (!empty($role)) {
             $conditions[] = "role = ?";
             $params[]     = $role;
             $types       .= 's';
         }
 
-        // فلترة بالبحث إذا تم تمريره
+        // Filter by name or email if a search term is provided.
         if (!empty($search)) {
             $conditions[] = "(name LIKE ? OR email LIKE ?)";
             $params[]     = "%{$search}%";
@@ -238,13 +242,13 @@ class UserModel extends BaseModel
             $types       .= 'ss';
         }
 
-        // بناء جملة WHERE
+        // Assemble the WHERE clause string.
         $where = '';
         if (!empty($conditions)) {
             $where = "WHERE " . implode(" AND ", $conditions);
         }
 
-        // أضف LIMIT و OFFSET للـ params
+        // Append LIMIT and OFFSET for pagination.
         $params[] = $limit;
         $params[] = $offset;
         $types   .= 'ii';
@@ -263,10 +267,12 @@ class UserModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // countAll(): عدد المستخدمين الإجمالي
+    // countAll()
+    // Count the total number of users matching the active filters.
     //
-    // تُستخدم مع Paginator لحساب عدد الصفحات
-    // نفس فلاتر getAllPaginated لكن بدون LIMIT/OFFSET
+    // Used with the Paginator to calculate total page count.
+    // Applies the same filters as getAllPaginated() but without
+    // LIMIT/OFFSET since we only need a total count.
     // --------------------------------------------------------
     public function countAll(
         string $role   = '',
@@ -303,13 +309,13 @@ class UserModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // countByRole(): عدد المستخدمين لكل دور
+    // countByRole()
+    // Count users grouped by their role.
     //
-    // تُستخدم في:
-    // - لوحة تحكم Admin (إحصائيات)
+    // Used in the Admin Dashboard for statistics.
     //
-    // تُرجع مصفوفة مثل:
-    // ['admin' => 1, 'doctor' => 5, 'patient' => 23]
+    // Returns an array like:
+    //   ['admin' => 1, 'doctor' => 5, 'patient' => 23]
     // --------------------------------------------------------
     public function countByRole(): array
     {
@@ -319,7 +325,7 @@ class UserModel extends BaseModel
              GROUP BY role"
         );
 
-        // حوّل النتيجة لمصفوفة role → total
+        // Convert the result rows into a simple role => count map.
         $counts = [
             'admin'   => 0,
             'doctor'  => 0,
@@ -335,13 +341,14 @@ class UserModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // emailExists(): هل البريد مستخدم بالفعل؟
+    // emailExists()
+    // Check whether an email address is already registered.
     //
-    // تُستخدم عند إنشاء مستخدم جديد
-    // للتحقق قبل INSERT لإظهار رسالة خطأ واضحة
+    // Used before creating a new user to show a clear error
+    // message instead of a raw database duplicate-key error.
     //
-    // $excludeId → لتجاهل المستخدم الحالي عند التعديل
-    // مثال: عند تعديل الـ email، تجاهل الـ email الحالي
+    // $excludeId: when editing a user, pass their current ID
+    //             so we don't flag their own email as a duplicate.
     // --------------------------------------------------------
     public function emailExists(string $email, int $excludeId = 0): bool
     {
@@ -358,12 +365,14 @@ class UserModel extends BaseModel
     }
 
 
-
-// --------------------------------------------------------
-    // delete(): حذف مستخدم بالـ ID
+    // --------------------------------------------------------
+    // delete()
+    // Permanently delete a user by their ID.
     //
-    // ON DELETE CASCADE → يحذف doctor/appointments تلقائيًا
-    // تُستخدم في: Admin panel + تنظيف الاختبارات
+    // The database uses ON DELETE CASCADE, so related records
+    // (doctor profile, appointments, etc.) are removed automatically.
+    //
+    // Used in: Admin panel user management.
     // --------------------------------------------------------
     public function delete(int $id): bool
     {
@@ -373,5 +382,4 @@ class UserModel extends BaseModel
             [$id]
         );
     }
-
-    }
+}

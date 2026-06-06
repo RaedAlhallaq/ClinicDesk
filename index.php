@@ -1,30 +1,33 @@
 <?php
 // ============================================================
-// This file is the Front Controller, and every request in the project goes through here.
+// index.php — Front Controller
+// Every request in the project goes through this single file.
+// It starts the session, loads all required files, reads the
+// URL parameters, and routes the request to the correct controller.
 // ============================================================
 
 
 // ------------------------------------------------------------
-// القسم 1: بدء الـ Session
-// يجب أن يكون أول شيء قبل أي echo أو output
+// Section 1: Start the Session
+// Must come before any output (echo, HTML, etc.)
 // ------------------------------------------------------------
 session_name('clinicdesk_session');
 session_start();
 
 
 // ------------------------------------------------------------
-// القسم 2: تحميل ملفات الإعدادات
-// الترتيب مهم: config.php أولًا لأن database.php
-// قد يحتاج ثوابت منه مستقبلًا
+// Section 2: Load Configuration Files
+// Order matters: config.php is loaded first because it defines
+// constants (BASE_URL, ITEMS_PER_PAGE, etc.) used by other files.
 // ------------------------------------------------------------
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/config/database.php';
 
 
 // ------------------------------------------------------------
-// القسم 3: تحميل الكلاسات الأساسية (Core Classes)
-// هذه الكلاسات يحتاجها كل controller وكل model
-// نحمّلها مرة واحدة هنا بدل تكرارها في كل ملف
+// Section 3: Load Core Classes
+// These classes are needed by every controller and model.
+// Loading them once here avoids repeating the require in each file.
 // ------------------------------------------------------------
 require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/core/Auth.php';
@@ -34,23 +37,22 @@ require_once __DIR__ . '/core/helpers.php';
 
 
 // ------------------------------------------------------------
-// القسم 4: قراءة معاملات الـ URL وتنظيفها
+// Section 4: Read and Clean URL Parameters
 //
-// مثال URL: index.php?page=appointments&action=book
+// Example URL: index.php?page=appointments&action=book
 //
-// filter_input() أآمن من $_GET مباشرة:
-// FILTER_SANITIZE_SPECIAL_CHARS → يزيل أحرف خطيرة
-// ?? 'dashboard' → القيمة الافتراضية إذا لم يوجد page
+// filter_input() is safer than reading $_GET directly:
+//   FILTER_SANITIZE_SPECIAL_CHARS → removes dangerous characters
+//   ?? 'dashboard'                → default value if 'page' is missing
 // ------------------------------------------------------------
-$page = filter_input(INPUT_GET, 'page', FILTER_SANITIZE_SPECIAL_CHARS) ?? 'dashboard';
+$page   = filter_input(INPUT_GET, 'page',   FILTER_SANITIZE_SPECIAL_CHARS) ?? 'dashboard';
 $action = filter_input(INPUT_GET, 'action', FILTER_SANITIZE_SPECIAL_CHARS) ?? 'index';
 
-// تأكد أن القيم تحتوي فقط على أحرف وأرقام وشرطة سفلية
-// هذا يمنع أي محاولة لحقن مسارات غريبة
-$page = preg_replace('/[^a-zA-Z0-9_]/', '', $page);
+// Allow only letters, numbers, and underscores — prevents path injection.
+$page   = preg_replace('/[^a-zA-Z0-9_]/', '', $page);
 $action = preg_replace('/[^a-zA-Z0-9_]/', '', $action);
 
-// إذا أصبحت فارغة بعد التنظيف → أعد للقيمة الافتراضية
+// If the values are empty after cleaning, fall back to safe defaults.
 if (empty($page))
     $page = 'dashboard';
 if (empty($action))
@@ -58,30 +60,26 @@ if (empty($action))
 
 
 // ------------------------------------------------------------
-// القسم 5: الـ Router
-// يربط قيمة page بملف الـ Controller المناسب
-//
-// لماذا match وليس switch؟
-// match أحدث وأدق: يستخدم === وليس ==
-// لا يحتاج break
-// يرمي خطأ تلقائيًا إذا لم يجد تطابق (بدل السكوت)
+// Section 5: Router
+// Maps each 'page' value to the corresponding controller file.
+// Using an array map is more readable and maintainable than a
+// long if/elseif chain.
 // ------------------------------------------------------------
 $controllerMap = [
-    'auth' => __DIR__ . '/controllers/AuthController.php',
-    'dashboard' => __DIR__ . '/controllers/DashboardController.php',
-    'users' => __DIR__ . '/controllers/UserController.php',
-    'doctors' => __DIR__ . '/controllers/DoctorController.php',
-    'appointments' => __DIR__ . '/controllers/AppointmentController.php',
+    'auth'          => __DIR__ . '/controllers/AuthController.php',
+    'dashboard'     => __DIR__ . '/controllers/DashboardController.php',
+    'users'         => __DIR__ . '/controllers/UserController.php',
+    'doctors'       => __DIR__ . '/controllers/DoctorController.php',
+    'appointments'  => __DIR__ . '/controllers/AppointmentController.php',
     'prescriptions' => __DIR__ . '/controllers/PrescriptionController.php',
-    'reports' => __DIR__ . '/controllers/ReportController.php',
+    'reports'       => __DIR__ . '/controllers/ReportController.php',
 ];
 
 if (array_key_exists($page, $controllerMap)) {
-    // ✅ الصفحة معروفة → حمّل الـ Controller
+    // Known page — load the matching controller file.
     require_once $controllerMap[$page];
 } else {
-    // ❌ الصفحة غير معروفة → أظهر صفحة 404
+    // Unknown page — show a 404 error page.
     http_response_code(404);
     require_once __DIR__ . '/views/errors/404.php';
 }
-

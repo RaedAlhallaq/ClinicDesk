@@ -1,8 +1,8 @@
 <?php
 // ============================================================
 // views/errors/404.php
-// صفحة "غير موجود" — 404 Not Found
-// تُعرض عند طلب صفحة غير موجودة في الـ Router
+// 404 Not Found Error Page
+// Displayed when the router cannot match the requested page parameter.
 // ============================================================
 
 if (http_response_code() !== 404) {

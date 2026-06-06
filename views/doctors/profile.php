@@ -1,20 +1,19 @@
 <?php
 // ============================================================
 // views/doctors/profile.php
-// صفحة تعديل الملف الشخصي للطبيب (self-edit)
-// Doctor's own profile edit page
+// Doctor's own profile edit page (self-edit)
 // ============================================================
 
-// تأكد أن المستخدم طبيب — ensure current user is a doctor
+// Ensure current user is a doctor
 Auth::requireRole('doctor');
 require_once __DIR__ . '/../../views/partials/header.php';
 require_once __DIR__ . '/../../views/partials/navbar.php';
 require_once __DIR__ . '/../../views/partials/sidebar.php';
 
-// أيام الأسبوع المتاحة للاختيار — all available days for checkboxes
+// All available days for checkboxes
 $allDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-// الأيام المحددة حاليًا — currently selected days (POST overrides DB value for re-display on error)
+// Currently selected days (POST overrides DB value for re-display on error)
 $selectedDays = $_POST['available_days']
     ?? $doctor['available_days_array']
     ?? [];
@@ -52,14 +51,14 @@ $selectedDays = $_POST['available_days']
                 <div class="card card-primary card-outline">
                     <div class="card-body text-center pt-4">
 
-                        <!-- صورة الطبيب الحالية — current doctor photo -->
+                        <!-- Current doctor photo -->
                         <?php if (!empty($doctor['avatar'])): ?>
                             <img src="<?= e(uploadUrl($doctor['avatar'])) ?>"
                                  alt="<?= e($doctor['name']) ?>"
                                  class="img-fluid rounded-circle mb-3"
                                  style="width:120px; height:120px; object-fit:cover;">
                         <?php else: ?>
-                            <!-- صورة افتراضية إذا لم تُرفع صورة — default avatar placeholder -->
+                            <!-- Default avatar placeholder -->
                             <div class="bg-secondary rounded-circle d-inline-flex align-items-center
                                         justify-content-center mb-3"
                                  style="width:120px; height:120px;">
@@ -72,7 +71,7 @@ $selectedDays = $_POST['available_days']
                         <span class="badge badge-success">Active Doctor</span>
                     </div>
 
-                    <!-- معلومات سريعة — quick info card -->
+                    <!-- Quick info card -->
                     <div class="card-footer p-0">
                         <ul class="nav flex-column">
                             <li class="nav-item border-bottom py-2 px-3">
@@ -105,7 +104,6 @@ $selectedDays = $_POST['available_days']
                     </div>
 
                     <!--
-                        enctype="multipart/form-data" مطلوب لرفع الصور
                         Required for photo upload
                     -->
                     <form method="POST"
@@ -113,7 +111,7 @@ $selectedDays = $_POST['available_days']
                           action="<?= BASE_URL ?>/index.php?page=doctors&action=profile"
                           id="profileEditForm">
 
-                        <!-- رمز CSRF — CSRF protection token -->
+                        <!-- CSRF protection token -->
                         <?= CSRF::tokenInput() ?>
 
                         <div class="card-body">
@@ -253,7 +251,7 @@ $selectedDays = $_POST['available_days']
                                     </div>
                                 </div>
                                 <small class="text-muted">
-                                    <!-- قبول JPEG و PNG فقط — accepts JPEG and PNG only -->
+                                    <!-- Accepts JPEG and PNG only -->
                                     JPEG or PNG only, max 1MB.
                                     <?php if (!empty($doctor['avatar'])): ?>
                                         Current: <strong><?= e(basename($doctor['avatar'])) ?></strong>
@@ -283,7 +281,6 @@ $selectedDays = $_POST['available_days']
     </div><!-- /.container-fluid -->
 </section>
 
-<!-- Script لتحديث اسم الملف المختار في الـ custom-file-input -->
 <!-- Script to show selected filename in custom file input label -->
 <script>
 document.getElementById('profile_photo').addEventListener('change', function () {

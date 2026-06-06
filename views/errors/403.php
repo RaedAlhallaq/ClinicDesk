@@ -1,13 +1,13 @@
 <?php
 // ============================================================
 // views/errors/403.php
-// صفحة "ممنوع الوصول" — 403 Forbidden
-// تُعرض عندما يحاول مستخدم الوصول لصفحة
-// لا يملك صلاحية الوصول إليها
+// 403 Forbidden Error Page
+// Displayed when a user attempts to access a page
+// for which they lack the required role/permissions.
 // ============================================================
 
-// تأكد أن HTTP status code مضبوط على 403
-// (قد يكون ضُبط بالفعل في requireRole)
+// Ensure the HTTP status code is set to 403
+// (It might have already been set in Auth::requireRole)
 if (http_response_code() !== 403) {
     http_response_code(403);
 }
@@ -101,13 +101,13 @@ if (http_response_code() !== 403) {
         </p>
 
         <?php if (isset($_SESSION['user'])): ?>
-            <!-- المستخدم مسجل → أعده للـ Dashboard -->
+            <!-- User is logged in → offer return to Dashboard -->
             <a href="<?= BASE_URL ?>/index.php?page=dashboard"
                class="btn">
                 العودة للرئيسية
             </a>
         <?php else: ?>
-            <!-- غير مسجل → أعده لتسجيل الدخول -->
+            <!-- User is not logged in → offer login link -->
             <a href="<?= BASE_URL ?>/index.php?page=auth&action=login"
                class="btn">
                 تسجيل الدخول

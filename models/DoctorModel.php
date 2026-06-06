@@ -1,8 +1,8 @@
 <?php
 // ============================================================
 // models/DoctorModel.php
-// كل العمليات على جدول doctors
-// مع JOIN على users و specializations
+// Handles all database operations related to doctors.
+// Most queries JOIN the 'doctors', 'users', and 'specializations' tables.
 // ============================================================
 
 require_once __DIR__ . '/BaseModel.php';
@@ -10,9 +10,11 @@ require_once __DIR__ . '/BaseModel.php';
 class DoctorModel extends BaseModel
 {
     // --------------------------------------------------------
-    // findById(): جلب طبيب بالـ doctor.id مع كل بياناته
+    // findById()
+    // Fetch a doctor's full profile by their doctor record ID (doctors.id).
     //
-    // تُرجع: بيانات الطبيب كاملة أو null
+    // JOINs users and specializations to return all data in one query.
+    // Returns: full doctor data as an array, or null if not found.
     // --------------------------------------------------------
     public function findById(int $doctorId): ?array
     {
@@ -38,7 +40,7 @@ class DoctorModel extends BaseModel
         );
 
         if ($doctor) {
-            // حوّل available_days من string لمصفوفة
+            // Convert the available_days CSV string into an array for easier use in views.
             $doctor['available_days_array'] = $this->parseDays(
                 $doctor['available_days']
             );
@@ -49,11 +51,12 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // findByUserId(): جلب طبيب بالـ user.id
+    // findByUserId()
+    // Fetch a doctor's profile using their user account ID (users.id).
     //
-    // تُستخدم في:
-    // - بعد تسجيل الدخول: Auth::id() → findByUserId()
-    // - Doctor يعدّل ملفه الشخصي
+    // Used when:
+    //   - A doctor logs in: Auth::id() → findByUserId()
+    //   - A doctor edits their own profile
     // --------------------------------------------------------
     public function findByUserId(int $userId): ?array
     {
@@ -79,6 +82,7 @@ class DoctorModel extends BaseModel
         );
 
         if ($doctor) {
+            // Parse available_days into an array for easy view rendering.
             $doctor['available_days_array'] = $this->parseDays(
                 $doctor['available_days']
             );
@@ -89,13 +93,15 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getAll(): جلب كل الأطباء (للـ dropdown في حجز الموعد)
+    // getAll()
+    // Fetch all active doctors (used for dropdown lists).
     //
-    // تُستخدم في:
-    // - نموذج حجز موعد: قائمة الأطباء المتاحين
-    // - تقارير Admin: فلترة بالطبيب
+    // Used when:
+    //   - Patient is booking an appointment (doctor dropdown)
+    //   - Admin is filtering reports by doctor
     //
-    // تُرجع: مصفوفة مبسطة (id, name, specialization, fee)
+    // Returns a simplified list: id, name, specialization, fee.
+    // Only returns doctors whose user account is active (is_active = 1).
     // --------------------------------------------------------
     public function getAll(): array
     {
@@ -115,10 +121,10 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getAllPaginated(): قائمة الأطباء مع Pagination للـ Admin
+    // getAllPaginated()
+    // Fetch a page of doctors for the Admin management list.
     //
-    // تُستخدم في:
-    // - لوحة Admin: صفحة إدارة الأطباء
+    // Uses LIMIT and OFFSET for pagination.
     // --------------------------------------------------------
     public function getAllPaginated(int $offset, int $limit): array
     {
@@ -145,7 +151,8 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // countAll(): عدد الأطباء الإجمالي (للـ Paginator)
+    // countAll()
+    // Return the total number of doctors (used by the Paginator).
     // --------------------------------------------------------
     public function countAll(): int
     {
@@ -156,20 +163,20 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // create(): إنشاء سجل طبيب جديد في جدول doctors
+    // create()
+    // Insert a new doctor record into the 'doctors' table.
     //
-    // ملاحظة: المستخدم يُنشأ أولًا في UserModel::create()
-    // ثم هنا نضيف سجل الطبيب المرتبط به
+    // Note: the user account must be created first via UserModel::create().
+    //       This method then links the doctor profile to that user.
     //
-    // $data يجب أن يحتوي على:
-    // user_id, specialization_id, bio, consultation_fee
-    // available_days (مصفوفة أو string)
+    // $data must contain: user_id, specialization_id, bio,
+    //                     consultation_fee, available_days (array or string)
     //
-    // تُرجع: ID الطبيب الجديد أو 0 إذا فشل
+    // Returns: new doctor ID, or 0 on failure.
     // --------------------------------------------------------
     public function create(array $data): int
     {
-        // إذا available_days مصفوفة → حوّلها لـ string
+        // Convert the available_days array to a comma-separated string for storage.
         $availableDays = is_array($data['available_days'])
             ? implode(',', $data['available_days'])
             : $data['available_days'];
@@ -196,14 +203,14 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // update(): تعديل بيانات طبيب
+    // update()
+    // Update a doctor's profile fields (used by Admin when editing a doctor).
     //
-    // تُستخدم في:
-    // - Admin يعدّل بيانات طبيب
-    // - Doctor يعدّل ملفه الشخصي
+    // Updates specialization, bio, fee, and available days.
     // --------------------------------------------------------
     public function update(int $doctorId, array $data): bool
     {
+        // Convert available_days to a CSV string if it's an array.
         $availableDays = is_array($data['available_days'])
             ? implode(',', $data['available_days'])
             : $data['available_days'];
@@ -228,10 +235,11 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // updatePhoto(): تحديث صورة الطبيب
+    // updatePhoto()
+    // Save a new profile photo path for a doctor.
     //
-    // الصورة تُحفظ في جدول users (عمود avatar)
-    // لذلك نحدّث جدول users وليس doctors
+    // The photo path is stored in the 'users' table (avatar column),
+    // not in the 'doctors' table, so we update 'users' here.
     // --------------------------------------------------------
     public function updatePhoto(int $userId, string $photoPath): bool
     {
@@ -246,13 +254,14 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getAvailableDays(): أيام إتاحة طبيب معين
+    // getAvailableDays()
+    // Return the list of days a specific doctor is available.
     //
-    // تُستخدم في:
-    // - نموذج حجز الموعد للتحقق من اليوم
-    // - عرض أيام الإتاحة للمريض
+    // Used when:
+    //   - Validating the appointment booking day
+    //   - Showing available days to a patient
     //
-    // تُرجع: مصفوفة أيام مثل ['Sun', 'Mon', 'Wed']
+    // Returns: array of short day names e.g. ['Sun', 'Mon', 'Wed']
     // --------------------------------------------------------
     public function getAvailableDays(int $doctorId): array
     {
@@ -273,13 +282,13 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // parseDays(): تحويل string الأيام لمصفوفة
+    // parseDays()  [private]
+    // Convert the available_days CSV string into a PHP array.
     //
-    // private → دالة داخلية مساعدة
-    // تُستخدم فقط داخل هذا الكلاس
+    // This is a private helper used only within this class.
     //
-    // المدخل:  "Sun,Mon,Tue,Wed,Thu"
-    // المخرج:  ['Sun', 'Mon', 'Tue', 'Wed', 'Thu']
+    // Input:  "Sun,Mon,Tue,Wed,Thu"
+    // Output: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu']
     // --------------------------------------------------------
     private function parseDays(string $days): array
     {
@@ -287,9 +296,7 @@ class DoctorModel extends BaseModel
             return [];
         }
 
-        // explode(',', ...) → يقسم الـ string على الفاصلة
-        // array_map('trim', ...) → يزيل مسافات من كل عنصر
-        // array_filter(...) → يحذف العناصر الفارغة
+        // Split on commas, trim whitespace from each value, and remove empty entries.
         return array_filter(
             array_map('trim', explode(',', $days))
         );
@@ -297,12 +304,12 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // isAvailableOnDay(): هل الطبيب متاح في يوم معين؟
+    // isAvailableOnDay()
+    // Check whether a doctor is available on a specific day of the week.
     //
-    // تُستخدم في:
-    // - التحقق من صحة الموعد عند الحجز
+    // Used during appointment booking validation.
     //
-    // $dayName → اسم اليوم بالإنجليزية: 'Sun','Mon',...
+    // $dayName: short English day name — e.g. 'Sun', 'Mon', 'Fri'
     // --------------------------------------------------------
     public function isAvailableOnDay(int $doctorId, string $dayName): bool
     {
@@ -312,30 +319,27 @@ class DoctorModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // updateProfile(): تحديث الملف الشخصي للطبيب (self-edit)
+    // updateProfile()
+    // Update a doctor's own profile (self-edit, not Admin editing).
     //
-    // Update doctor's own profile — used when a doctor edits
-    // their own profile page (not admin editing).
-    //
-    // يحدّث جدولين في استعلامين منفصلين:
     // Updates two tables in two separate prepared statements:
     //   1. doctors → bio, consultation_fee, available_days
     //   2. users   → name, email, phone
     //
-    // $doctorId → doctors.id
-    // $userId   → users.id (مرتبط بهذا الطبيب)
-    // $data     → مصفوفة البيانات المعدّلة
+    // $doctorId: the doctors.id value
+    // $userId:   the users.id linked to this doctor
+    // $data:     the updated field values
     //
-    // تُرجع: true إذا نجح كلا التحديثين
+    // Returns: true only if BOTH updates succeed.
     // --------------------------------------------------------
     public function updateProfile(int $doctorId, int $userId, array $data): bool
     {
-        // حوّل available_days من مصفوفة لـ string — convert array to CSV string
+        // Convert available_days array to a CSV string for storage.
         $availableDays = is_array($data['available_days'])
             ? implode(',', $data['available_days'])
             : ($data['available_days'] ?? '');
 
-        // تحديث جدول doctors — update doctors table
+        // Update the doctors table with professional profile fields.
         $doctorUpdated = (bool) $this->execute(
             "UPDATE doctors
              SET    bio               = ?,
@@ -351,7 +355,7 @@ class DoctorModel extends BaseModel
             ]
         );
 
-        // تحديث جدول users — update users table
+        // Update the users table with personal contact information.
         $userUpdated = (bool) $this->execute(
             "UPDATE users
              SET    name  = ?,
@@ -367,6 +371,7 @@ class DoctorModel extends BaseModel
             ]
         );
 
+        // Both updates must succeed for the operation to be considered successful.
         return $doctorUpdated && $userUpdated;
     }
-}
+}

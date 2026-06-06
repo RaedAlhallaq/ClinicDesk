@@ -1,7 +1,9 @@
 <?php
 // ============================================================
 // models/PrescriptionModel.php
-// كل العمليات على جدول prescriptions
+// Handles all database operations on the 'prescriptions' table.
+// Most queries JOIN the appointments and users tables to return
+// complete prescription details in a single query.
 // ============================================================
 
 require_once __DIR__ . '/BaseModel.php';
@@ -9,13 +11,14 @@ require_once __DIR__ . '/BaseModel.php';
 class PrescriptionModel extends BaseModel
 {
     // --------------------------------------------------------
-    // findByAppointmentId(): جلب وصفة بـ appointment_id
+    // findByAppointmentId()
+    // Fetch a prescription record by its linked appointment ID.
     //
-    // تُستخدم في:
-    // - Doctor: هل هذا الموعد له وصفة بالفعل؟
-    // - Patient: عرض الوصفة في صفحة التفاصيل
+    // Used when:
+    //   - Checking if a prescription already exists for an appointment
+    //   - Displaying the prescription on the appointment detail page
     //
-    // تُرجع: بيانات الوصفة أو null
+    // Returns: prescription data as an array, or null if none exists.
     // --------------------------------------------------------
     public function findByAppointmentId(int $appointmentId): ?array
     {
@@ -36,11 +39,13 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // findById(): جلب وصفة بالـ ID مع بيانات الموعد
+    // findById()
+    // Fetch a prescription by its own ID, along with full details
+    // from the linked appointment, patient, doctor, and specialization.
     //
-    // تُستخدم في:
-    // - صفحة تفاصيل الوصفة
-    // - التحقق من الملكية قبل التحميل
+    // Used when:
+    //   - Viewing the prescription detail page
+    //   - Verifying ownership before allowing a file download
     // --------------------------------------------------------
     public function findById(int $id): ?array
     {
@@ -73,16 +78,15 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // create(): إنشاء وصفة جديدة
+    // create()
+    // Insert a new prescription record into the database.
     //
-    // تُستخدم في:
-    // - Doctor يضيف وصفة بعد إكمال الموعد
+    // Used when a doctor adds a prescription to a completed appointment.
     //
-    // $data يجب أن يحتوي على:
-    // appointment_id, diagnosis, medications
-    // notes (اختياري), file_path (اختياري)
+    // $data must contain: appointment_id, diagnosis, medications
+    //                     notes (optional), file_path (optional PDF)
     //
-    // تُرجع: ID الوصفة الجديدة أو 0 إذا فشل
+    // Returns: new prescription ID, or 0 on failure.
     // --------------------------------------------------------
     public function create(array $data): int
     {
@@ -108,10 +112,10 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // update(): تعديل وصفة موجودة
+    // update()
+    // Update an existing prescription record.
     //
-    // تُستخدم في:
-    // - Doctor يعدّل الوصفة
+    // Used when a doctor edits a prescription after creating it.
     // --------------------------------------------------------
     public function update(int $id, array $data): bool
     {
@@ -135,10 +139,11 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // updateFilePath(): تحديث مسار الملف فقط
+    // updateFilePath()
+    // Update only the file_path column of an existing prescription.
     //
-    // تُستخدم عند رفع ملف PDF جديد
-    // دون تغيير باقي بيانات الوصفة
+    // Used when a new PDF file is uploaded separately from the
+    // text fields (diagnosis, medications, notes).
     // --------------------------------------------------------
     public function updateFilePath(int $id, string $filePath): bool
     {
@@ -153,12 +158,12 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getByPatient(): كل وصفات مريض معين
+    // getByPatient()
+    // Fetch all prescriptions belonging to a specific patient.
     //
-    // تُستخدم في:
-    // - صفحة "وصفاتي" للمريض
-    //
-    // تُرجع: مصفوفة الوصفات مع بيانات الموعد
+    // Used on the patient's "My Prescriptions" page.
+    // JOINs appointments, doctors, and specializations to show
+    // the doctor name and appointment date alongside each prescription.
     // --------------------------------------------------------
     public function getByPatient(int $patientId): array
     {
@@ -188,10 +193,11 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // getByDoctor(): كل وصفات طبيب معين
+    // getByDoctor()
+    // Fetch all prescriptions issued by a specific doctor.
     //
-    // تُستخدم في:
-    // - صفحة وصفات الطبيب
+    // Used on the doctor's "My Prescriptions" page.
+    // JOINs appointments and patients to show patient names.
     // --------------------------------------------------------
     public function getByDoctor(int $doctorId): array
     {
@@ -218,12 +224,14 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // existsForAppointment(): هل الموعد له وصفة بالفعل؟
+    // existsForAppointment()
+    // Check whether a prescription already exists for a given appointment.
     //
-    // تُستخدم قبل إنشاء وصفة جديدة
-    // لأن كل موعد له وصفة واحدة فقط (UNIQUE في DB)
+    // Called before create() to prevent duplicate prescriptions.
+    // The database also enforces a UNIQUE constraint on appointment_id,
+    // but this check gives a friendlier error message.
     //
-    // تُرجع: true = توجد وصفة، false = لا توجد
+    // Returns: true if a prescription already exists, false otherwise.
     // --------------------------------------------------------
     public function existsForAppointment(int $appointmentId): bool
     {
@@ -240,10 +248,11 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // isOwnedByPatient(): هل هذه الوصفة تخص هذا المريض؟
+    // isOwnedByPatient()
+    // Verify that a prescription belongs to a specific patient.
     //
-    // تُستخدم قبل السماح بتحميل الملف
-    // المريض يقدر يحمّل وصفاته فقط
+    // Used before allowing a patient to download their prescription PDF.
+    // Patients may only access their own files.
     // --------------------------------------------------------
     public function isOwnedByPatient(
         int $prescriptionId,
@@ -264,9 +273,10 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // isOwnedByDoctor(): هل هذه الوصفة أنشأها هذا الطبيب؟
+    // isOwnedByDoctor()
+    // Verify that a prescription was issued by a specific doctor.
     //
-    // تُستخدم قبل السماح للطبيب بتعديل الوصفة
+    // Used before allowing a doctor to edit or download a prescription.
     // --------------------------------------------------------
     public function isOwnedByDoctor(
         int $prescriptionId,
@@ -287,9 +297,10 @@ class PrescriptionModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // countByPatient(): عدد وصفات مريض
+    // countByPatient()
+    // Count the total number of prescriptions for a specific patient.
     //
-    // تُستخدم في: Dashboard المريض (إحصائيات)
+    // Used in the Patient Dashboard to display a summary statistic.
     // --------------------------------------------------------
     public function countByPatient(int $patientId): int
     {

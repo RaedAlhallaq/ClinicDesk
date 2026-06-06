@@ -1,7 +1,8 @@
 <?php
 // ============================================================
 // models/SpecializationModel.php
-// كل العمليات على جدول specializations
+// Handles all database operations on the 'specializations' table.
+// Used to manage the list of medical specializations available in the system.
 // ============================================================
 
 require_once __DIR__ . '/BaseModel.php';
@@ -9,13 +10,12 @@ require_once __DIR__ . '/BaseModel.php';
 class SpecializationModel extends BaseModel
 {
     // --------------------------------------------------------
-    // getAll(): جلب كل التخصصات
+    // getAll()
+    // Fetch all specializations ordered alphabetically.
     //
-    // تُستخدم في:
-    // - dropdown عند إنشاء/تعديل طبيب
-    // - صفحة إدارة التخصصات في Admin panel
-    //
-    // تُرجع: مصفوفة كل التخصصات مرتبة أبجديًا
+    // Used when:
+    //   - Populating the dropdown when creating or editing a doctor
+    //   - Listing specializations on the Admin management page
     // --------------------------------------------------------
     public function getAll(): array
     {
@@ -28,9 +28,10 @@ class SpecializationModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // findById(): جلب تخصص واحد بالـ ID
+    // findById()
+    // Fetch a single specialization by its ID.
     //
-    // تُستخدم للتحقق من وجود التخصص قبل التعديل
+    // Used to verify a specialization exists before editing it.
     // --------------------------------------------------------
     public function findById(int $id): ?array
     {
@@ -45,12 +46,13 @@ class SpecializationModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // nameExists(): هل اسم التخصص موجود بالفعل؟
+    // nameExists()
+    // Check whether a specialization name is already in use.
     //
-    // تُستخدم قبل إنشاء تخصص جديد
-    // لمنع التكرار
+    // Called before creating a new specialization to prevent duplicates.
     //
-    // $excludeId → لتجاهل التخصص الحالي عند التعديل
+    // $excludeId: when editing, pass the current specialization's ID
+    //             so its own name is not flagged as a duplicate.
     // --------------------------------------------------------
     public function nameExists(string $name, int $excludeId = 0): bool
     {
@@ -68,9 +70,10 @@ class SpecializationModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // create(): إضافة تخصص جديد
+    // create()
+    // Insert a new specialization into the database.
     //
-    // تُرجع: ID التخصص الجديد أو 0 إذا فشل
+    // Returns: new specialization ID, or 0 on failure.
     // --------------------------------------------------------
     public function create(string $name): int
     {
@@ -86,9 +89,10 @@ class SpecializationModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // update(): تعديل اسم تخصص
+    // update()
+    // Update the name of an existing specialization.
     //
-    // تُرجع: true إذا نجح، false إذا فشل
+    // Returns: true on success, false on failure.
     // --------------------------------------------------------
     public function update(int $id, string $name): bool
     {
@@ -103,18 +107,20 @@ class SpecializationModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // isSafeToDelete(): هل يمكن حذف هذا التخصص بأمان؟
+    // isSafeToDelete()
+    // Check whether a specialization can be safely deleted.
     //
-    // يتحقق: هل يوجد أطباء مرتبطون بهذا التخصص؟
+    // A specialization is safe to delete only if no doctors are
+    // currently assigned to it. This prevents orphaned records.
     //
-    // تُستخدم قبل delete() دائمًا:
-    // if ($model->isSafeToDelete($id)) {
-    //     $model->delete($id);
-    // } else {
-    //     flashMessage('لا يمكن الحذف — يوجد أطباء مرتبطون', 'error');
-    // }
+    // Always call this before delete():
+    //   if ($model->isSafeToDelete($id)) {
+    //       $model->delete($id);
+    //   } else {
+    //       flashMessage('Cannot delete — doctors are using this.', 'error');
+    //   }
     //
-    // تُرجع: true = آمن للحذف، false = غير آمن
+    // Returns: true if safe to delete, false if doctors are assigned.
     // --------------------------------------------------------
     public function isSafeToDelete(int $id): bool
     {
@@ -126,16 +132,17 @@ class SpecializationModel extends BaseModel
             [$id]
         );
 
-        // إذا العدد = 0 → لا أطباء مرتبطون → آمن للحذف
+        // If count = 0, no doctors are linked — safe to delete.
         return (int) $count === 0;
     }
 
 
     // --------------------------------------------------------
-    // getDoctorCount(): عدد الأطباء في هذا التخصص
+    // getDoctorCount()
+    // Return the number of doctors assigned to a specialization.
     //
-    // تُستخدم لعرض رسالة واضحة:
-    // "لا يمكن الحذف — يوجد 5 أطباء في هذا التخصص"
+    // Used to build a meaningful error message like:
+    //   "Cannot delete — 5 doctor(s) use this specialization."
     // --------------------------------------------------------
     public function getDoctorCount(int $id): int
     {
@@ -150,11 +157,12 @@ class SpecializationModel extends BaseModel
 
 
     // --------------------------------------------------------
-    // delete(): حذف تخصص
+    // delete()
+    // Permanently delete a specialization by ID.
     //
-    // ⚠️  استدعِ isSafeToDelete() قبل هذه الدالة دائمًا
+    // ⚠️  Always call isSafeToDelete() before this method.
     //
-    // تُرجع: true إذا نجح، false إذا فشل
+    // Returns: true on success, false on failure.
     // --------------------------------------------------------
     public function delete(int $id): bool
     {
