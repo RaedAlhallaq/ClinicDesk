@@ -1,0 +1,26 @@
+# Database credentials — NEVER commit
+config/database.php
+
+# Uploaded files
+public/uploads/avatars/*
+public/uploads/doctor_photos/*
+public/uploads/prescriptions/*
+
+# Keep protection files
+!public/uploads/avatars/index.php
+!public/uploads/doctor_photos/index.php
+!public/uploads/prescriptions/index.php
+!public/uploads/prescriptions/.htaccess
+
+# AdminLTE (downloaded separately)
+public/assets/adminlte/
+
+# Temp files
+*.log
+test_*.php
+generate_*.php
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
